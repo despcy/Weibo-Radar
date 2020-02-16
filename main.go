@@ -39,6 +39,7 @@ type UserInfo struct {
 var latitude = "38.12345"
 var lontitude = "115.12345"
 var Cookie = ""
+var OutputFile = "result"
 var count = 0
 var writer *csv.Writer
 
@@ -48,18 +49,24 @@ func WriteToCSV(data Card) {
 
 func main() {
 
-	file, _ := os.Create("result.csv")
+	file, _ := os.Create(OutputFile)
 	defer file.Close()
 	writer = csv.NewWriter(file)
 
 	defer writer.Flush()
-	writer.Write([]string{"id", "screenName", "Desc1", "Desc2", "ScreenName", "Sex", "Location", "Birthday", "SexOri", "SingleStatus", "Intro", "Labels", "Study", "Work"})
+	writer.Write([]string{"Weibo Address", "screenName", "Desc1", "Desc2", "ScreenName", "Sex", "Location", "Birthday", "SexOri", "SingleStatus", "Intro", "Labels", "Study", "Work"})
 	// Instantiate default collector
 	c := colly.NewCollector(
-
+		// Turn on asynchronous requests
+		colly.Async(true),
 		//colly.AllowedDomains("weibo.cn"),
 		colly.Debugger(&debug.LogDebugger{}),
 	)
+
+	c.Limit(&colly.LimitRule{
+		Parallelism: 2,
+		Delay:       1 * time.Second,
+	})
 
 	// Before making a request print "Visiting ..."
 	c.OnRequest(func(r *colly.Request) {
@@ -118,21 +125,18 @@ func main() {
 
 			r.Headers.Set("cookie", Cookie)
 
-			c.Request("GET", "https://weibo.cn/"+string(userID)+"/info", nil, r.Ctx, *r.Headers)
-			count++
+			//	c.Request("GET", "https://weibo.cn/"+string(userID)+"/info", nil, r.Ctx, *r.Headers)
 
-			fmt.Println(count)
-
-			time.Sleep(2000 * time.Millisecond)
 		}, "cards", "[0]", "card_group")
 
 	})
 
 	// Start scraping
 	for i := 1; i < 200; i++ {
-		time.Sleep(1000 * time.Millisecond)
 
 		c.Visit("https://api.weibo.cn/2/guest/cardlist?lat=" + latitude + "&lon=" + lontitude + "&page=" + strconv.Itoa(i) + "&count=20&containerid=2317120015_111_1")
 	}
+
+	c.Wait()
 
 }
